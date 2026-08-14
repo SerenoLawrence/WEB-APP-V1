@@ -43,6 +43,7 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
 
     // ── Auth (public — no token needed) ───────────────────────────────
     Route::prefix('auth')->name('auth.')->group(function () {
+        Route::post('login',      [MobileAuthController::class, 'login']);
         Route::post('send-otp',   [MobileAuthController::class, 'sendOtp']);
         Route::post('verify-otp', [MobileAuthController::class, 'verifyOtp']);
         Route::post('register',   [MobileAuthController::class, 'register']);

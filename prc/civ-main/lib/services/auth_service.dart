@@ -133,31 +133,43 @@ class AuthService {
     }
   }
 
-  // ── Login with PIN (no OTP — direct phone + PIN) ─────────────────────────
-  /// This is the new login flow: phone + 6-digit PIN → get token.
-  /// Laravel doesn't have a dedicated PIN login endpoint yet —
-  /// we use sendOtp + verifyOtp + check citizens table approach.
-  /// For now we wire it as: call /me to check if token is still valid,
-  /// or send OTP flow. The PIN validation will be added to Laravel next.
-  ///
-  /// TODO: Add POST /api/mobile/auth/login (phone + pin) to Laravel.
-  /// For now this is a placeholder that the login screen can call.
+  // ── Login with PIN (phone + 6-digit PIN → token) ─────────────────────────
   Future<({bool success, AppUser? user, String? error})> loginWithPin({
     required String phone,
     required String pin,
   }) async {
     try {
-      // NOTE: This endpoint will be added to Laravel.
-      // When ready, replace with:
-      //   final res = await _api.post(ApiConstants.loginWithPin,
-      //       {'phone': phone, 'pin': pin});
-      // For now, simulate a successful login using dummy data until
-      // the endpoint is built.
-      await Future.delayed(const Duration(milliseconds: 800));
-      return (success: false, user: null,
-          error: 'PIN login endpoint not yet built in Laravel. Use OTP flow for now.');
+      final res = await _api.post(
+        ApiConstants.login,
+        {
+          'phone': _normalizePhone(phone),
+          'pin': pin,
+        },
+        auth: false,
+      );
+
+      final data = res['data'] as Map<String, dynamic>?;
+      final token = data?['token'] as String?;
+      final citizenData = data?['citizen'] as Map<String, dynamic>?;
+
+      if (token != null) await _api.saveToken(token);
+      if (citizenData != null) {
+        _currentUser = _parseUser(citizenData);
+      }
+
+      return (
+        success: res['success'] == true,
+        user: _currentUser,
+        error: null,
+      );
+    } on ApiException catch (e) {
+      return (success: false, user: null, error: e.message);
     } catch (e) {
-      return (success: false, user: null, error: 'Cannot reach server.');
+      return (
+        success: false,
+        user: null,
+        error: 'Cannot reach server. Is Laravel running?',
+      );
     }
   }
 

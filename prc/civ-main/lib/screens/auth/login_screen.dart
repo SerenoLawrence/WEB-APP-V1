@@ -6,6 +6,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/state/app_state.dart';
 import '../../core/utils/validators.dart';
 import '../../screens/auth/forgot_password_flow.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -63,13 +64,29 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
+
+    final phone = '+63${_phoneController.text.replaceAll(' ', '')}';
+    final result = await AuthService.instance.loginWithPin(
+      phone: phone,
+      pin: _pin,
+    );
+
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    AppState().exitGuest();
-    Navigator.pushNamedAndRemoveUntil(
-        context, AppRoutes.home, (route) => false);
+    if (result.success && result.user != null) {
+      // Real login succeeded — update AppState then go to Home
+      AppState().exitGuest();
+      await AppState().onLoginSuccess(result.user!);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+          context, AppRoutes.home, (route) => false);
+    } else {
+      // Show the error from the API (or the TODO message while PIN login
+      // endpoint is being built — in that case hint user to use OTP)
+      final msg = result.error ?? 'Login failed. Please try again.';
+      _showSnack(msg, isError: true);
+    }
   }
 
   void _showSnack(String msg, {required bool isError}) {

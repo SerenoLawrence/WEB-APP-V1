@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
-import '../../core/utils/dummy_data.dart';
 import '../../core/utils/helpers.dart';
 import '../../core/state/app_state.dart';
+import '../../models/user.dart';
 
 class ProfileScreen extends StatelessWidget {
   final bool embedded;
@@ -12,7 +12,18 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = DummyData.currentUser;
+    // Use the real logged-in user from AppState.
+    // Falls back to a blank placeholder if somehow called without a session.
+    final state = AppState();
+    final user = state.currentUser ?? AppUser(
+      id: '',
+      fullName: 'Loading...',
+      phoneNumber: '',
+      barangay: '',
+      joinedDate: DateTime.now(),
+      totalReports: 0,
+      resolvedReports: 0,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -51,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
                             color: AppColors.primarySurface,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: AppColors.primary.withOpacity(0.2)),
+                                color: AppColors.primary.withValues(alpha: 0.2)),
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.edit_rounded,
@@ -163,8 +174,8 @@ class ProfileScreen extends StatelessWidget {
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        _StatTile(
-                          count: user.totalReports,
+                    _StatTile(
+                          count: state.totalCount,
                           label: 'Total\nReports',
                           icon: Icons.summarize_rounded,
                           color: AppColors.statusAssigned,
@@ -172,7 +183,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _StatTile(
-                          count: user.resolvedReports,
+                          count: state.resolvedCount,
                           label: 'Resolved',
                           icon: Icons.task_alt_rounded,
                           color: AppColors.statusResolved,
@@ -180,7 +191,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _StatTile(
-                          count: user.pendingReports,
+                          count: state.pendingCount,
                           label: 'Pending',
                           icon: Icons.hourglass_empty_rounded,
                           color: AppColors.statusPending,
@@ -194,7 +205,7 @@ class ProfileScreen extends StatelessWidget {
                     _ProfileInfoRow(
                         icon: Icons.phone_rounded,
                         label: 'Mobile Number',
-                        value: user.phoneNumber),
+                        value: _formatPhone(user.phoneNumber)),
                     const SizedBox(height: 8),
                     _ProfileInfoRow(
                         icon: Icons.calendar_today_rounded,
@@ -310,10 +321,14 @@ class ProfileScreen extends StatelessWidget {
                     color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              Navigator.pushNamedAndRemoveUntil(
-                  context, AppRoutes.login, (r) => false);
+              // Call real logout — clears token + resets AppState
+              await AppState().logout();
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                    context, AppRoutes.landing, (r) => false);
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
@@ -327,6 +342,20 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Format 639XXXXXXXXX → +63 9XX XXX XXXX
+  String _formatPhone(String raw) {
+    if (raw.isEmpty) return '';
+    // Normalise: strip leading country code
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('63') && digits.length == 12) {
+      digits = digits.substring(2); // → 9XXXXXXXXX
+    } else if (digits.startsWith('0') && digits.length == 11) {
+      digits = digits.substring(1); // → 9XXXXXXXXX
+    }
+    if (digits.length != 10) return raw; // can't format — return as-is
+    return '+63 ${digits.substring(0, 3)} ${digits.substring(3, 6)} ${digits.substring(6)}';
   }
 
   void _showAbout(BuildContext context) {

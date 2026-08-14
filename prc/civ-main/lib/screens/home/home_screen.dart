@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/state/app_state.dart';
-import '../../core/utils/dummy_data.dart';
 import '../../core/utils/helpers.dart';
 import '../../widgets/common/section_title.dart';
 import '../../widgets/navigation/bottom_nav.dart';
@@ -60,7 +59,7 @@ class _HomeTab extends StatelessWidget {
       listenable: AppState(),
       builder: (context, _) {
         final state = AppState();
-        final user = DummyData.currentUser;
+        final user = state.currentUser;
         final pending = state.pendingCount;
         final inProgress = state.inProgressCount;
         final resolvedCount = state.resolvedCount;
@@ -72,7 +71,7 @@ class _HomeTab extends StatelessWidget {
             slivers: [
               SliverToBoxAdapter(
                 child: _HomeAppBar(
-                  userName: user.firstName,
+                  userName: user?.firstName ?? 'Citizen',
                   unreadCount: unreadCount,
                 ),
               ),
@@ -82,7 +81,7 @@ class _HomeTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _GreetingSection(user: user),
+                      _GreetingSection(firstName: user?.firstName ?? 'Citizen'),
                       const SizedBox(height: 20),
                       _ReportCtaBanner(
                         onTap: () => Navigator.pushNamed(
@@ -121,7 +120,7 @@ class _HomeTab extends StatelessWidget {
                         onAction: () {},
                       ),
                       const SizedBox(height: 14),
-                      ...DummyData.announcements
+                      ...state.announcements
                           .map((a) => _AnnouncementCard(announcement: a)),
                       const SizedBox(height: 20),
                     ],
@@ -220,8 +219,8 @@ class _HomeAppBar extends StatelessWidget {
 
 // ── Greeting Section ──────────────────────────────────────────────────────────
 class _GreetingSection extends StatelessWidget {
-  final dynamic user;
-  const _GreetingSection({required this.user});
+  final String firstName;
+  const _GreetingSection({required this.firstName});
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +241,7 @@ class _GreetingSection extends StatelessWidget {
                 ),
               ),
               Text(
-                '${user.firstName}!',
+                '$firstName!',
                 style: GoogleFonts.inter(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,

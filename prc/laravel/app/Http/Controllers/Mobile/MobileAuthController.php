@@ -12,6 +12,59 @@ use Illuminate\Support\Facades\Hash;
 class MobileAuthController extends Controller
 {
     // ─────────────────────────────────────────────────────────────────────
+    // POST /api/mobile/auth/login
+    // Body: { phone, pin }
+    // Direct phone + PIN login — no OTP required for returning users.
+    // ─────────────────────────────────────────────────────────────────────
+    public function login(Request $request): JsonResponse
+    {
+        $request->validate([
+            'phone' => ['required', 'string'],
+            'pin'   => ['required', 'string', 'regex:/^\d{6}$/'],
+        ]);
+
+        $normalized = $this->normalizePhone($request->phone);
+
+        // Find citizen by phone
+        $citizen = Citizen::where('phone', $normalized)->first();
+
+        if (! $citizen) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No account found with that mobile number.',
+            ], 401);
+        }
+
+        // Verify PIN
+        if (! Hash::check($request->pin, $citizen->pin_hash)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Incorrect PIN. Please try again.',
+            ], 401);
+        }
+
+        if (! $citizen->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account has been deactivated.',
+            ], 403);
+        }
+
+        // Revoke old tokens and issue a fresh one
+        $citizen->tokens()->delete();
+        $token = $citizen->createToken('mobile')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful.',
+            'data'    => [
+                'token'   => $token,
+                'citizen' => $this->citizenResponse($citizen),
+            ],
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // POST /api/mobile/auth/send-otp
     // Body: { phone: "09XXXXXXXXX" }
     // Generates a 6-digit OTP and stores it. You can hook up any SMS

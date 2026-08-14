@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/state/app_state.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/inputs/otp_box.dart';
 
@@ -26,6 +28,10 @@ class _OtpScreenState extends State<OtpScreen>
   bool _isLoading = false;
   bool _isSending = false;
   bool _sendFailed = false;
+
+  // In dev mode Laravel returns the OTP code in the response.
+  // We show it on screen so you can copy-paste it without an SMS provider.
+  String? _devOtp;
 
   int _resendSeconds = 60;
   Timer? _timer;
@@ -63,19 +69,34 @@ class _OtpScreenState extends State<OtpScreen>
     super.dispose();
   }
 
-  // ── Semaphore call ────────────────────────────────────────────────────────
+  // ── Real API call ─────────────────────────────────────────────────────────
 
   Future<void> _sendOtp() async {
     setState(() {
       _isSending = true;
       _sendFailed = false;
+      _devOtp = null;
     });
-    await Future.delayed(const Duration(milliseconds: 800));
+
+    final result = await AuthService.instance.sendOtp(widget.phoneNumber);
+
     if (!mounted) return;
-    setState(() {
-      _isSending = false;
-    });
-    _startTimer();
+    setState(() => _isSending = false);
+
+    if (result.success) {
+      // Laravel returns the OTP in dev mode — show it so you can test
+      // without a real SMS provider. Remove this before going live.
+      if (result.otp != null) {
+        setState(() => _devOtp = result.otp);
+      }
+      _startTimer();
+    } else {
+      setState(() => _sendFailed = true);
+      _showSnack(
+        result.error ?? 'Failed to send OTP. Is Laravel running?',
+        isError: true,
+      );
+    }
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -110,19 +131,36 @@ class _OtpScreenState extends State<OtpScreen>
       return;
     }
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 400));
+
+    final result = await AuthService.instance.verifyOtp(
+      widget.phoneNumber,
+      _otp,
+    );
+
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // If new user → go to registration to complete profile.
-    // If existing user → go straight to home.
-    if (widget.isNewUser) {
+    if (!result.success) {
+      _showSnack(result.error ?? 'Invalid OTP. Please try again.', isError: true);
+      return;
+    }
+
+    if (result.isNewUser) {
+      // New user — go to Register screen to complete profile
       Navigator.pushNamed(
         context,
         AppRoutes.register,
         arguments: {'phone': widget.phoneNumber},
       );
     } else {
+      // Returning user — token already saved, load data then go Home
+      if (result.token != null) {
+        final user = AuthService.instance.currentUser;
+        if (user != null) {
+          await AppState().onLoginSuccess(user);
+        }
+      }
+      if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
         AppRoutes.home,
@@ -270,9 +308,56 @@ class _OtpScreenState extends State<OtpScreen>
                     ),
                   ),
 
-                const SizedBox(height: 16),
+                // ── Dev OTP banner (remove before going live) ────────────
+                if (_devOtp != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.developer_mode_rounded,
+                                color: Color(0xFF16A34A), size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              'DEV MODE — Your OTP code:',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF16A34A),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _devOtp!,
+                          style: GoogleFonts.robotoMono(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF15803D),
+                            letterSpacing: 8,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Remove this banner before publishing.',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: const Color(0xFF16A34A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                // ── OTP Input ─────────────────────────────────────────────
+                const SizedBox(height: 16),
                 OtpInputRow(
                   length: 6,
                   onCompleted: (otp) => setState(() => _otp = otp),
@@ -341,7 +426,7 @@ class _OtpScreenState extends State<OtpScreen>
                     color: AppColors.primarySurface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: AppColors.primary.withOpacity(0.2)),
+                        color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
@@ -446,7 +531,7 @@ class _OtpIllustration extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.navy.withOpacity(0.3),
+                    color: AppColors.navy.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -491,7 +576,7 @@ class _OtpIllustration extends StatelessWidget {
             child: Icon(
               Icons.star_rounded,
               size: 12,
-              color: AppColors.primary.withOpacity(0.5),
+              color: AppColors.primary.withValues(alpha: 0.5),
             ),
           ),
           Positioned(
@@ -500,7 +585,7 @@ class _OtpIllustration extends StatelessWidget {
             child: Icon(
               Icons.star_rounded,
               size: 8,
-              color: AppColors.statusPending.withOpacity(0.6),
+              color: AppColors.statusPending.withValues(alpha: 0.6),
             ),
           ),
         ],

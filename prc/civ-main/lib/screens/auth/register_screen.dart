@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/state/app_state.dart';
 import '../../core/utils/validators.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -50,6 +52,18 @@ class _RegisterScreenState extends State<RegisterScreen>
             .animate(CurvedAnimation(
                 parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
+
+    // Pre-fill phone if passed from OTP screen (stripped of +63 prefix)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['phone'] != null) {
+        final raw = args['phone'].toString()
+            .replaceAll('+63', '')
+            .replaceAll(' ', '')
+            .trim();
+        _phoneCtrl.text = raw;
+      }
+    });
   }
 
   @override
@@ -77,7 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   // ── Registration handler ──────────────────────────────────────────────────
   void _register() async {
-    // Validate text fields first
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedBarangay == null) {
@@ -105,20 +118,35 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
+
+    final phone = '+63${_phoneCtrl.text.replaceAll(' ', '')}';
+
+    final result = await AuthService.instance.register(
+      fullName: _nameCtrl.text.trim(),
+      phone: phone,
+      barangay: _selectedBarangay!,
+      pin: _pin,
+      email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+    );
+
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Go to OTP screen to verify phone number — after OTP → home
-    final phone = '+63 ${_phoneCtrl.text.trim()}';
-    Navigator.pushNamed(
-      context,
-      AppRoutes.otp,
-      arguments: {
-        'phone': phone,
-        'isNewUser': false, // after OTP verify → goes straight to home
-      },
-    );
+    if (result.success && result.user != null) {
+      // Registration succeeded — update AppState and go to Home
+      await AppState().onLoginSuccess(result.user!);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.home,
+        (route) => false,
+      );
+    } else {
+      _showSnack(
+        result.error ?? 'Registration failed. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   void _showSnack(String msg, {required bool isError}) {
@@ -521,8 +549,12 @@ class _PinInputRowState extends State<_PinInputRow> {
 
   @override
   void dispose() {
-    for (final c in _ctrls) c.dispose();
-    for (final n in _nodes) n.dispose();
+    for (final c in _ctrls) {
+      c.dispose();
+    }
+    for (final n in _nodes) {
+      n.dispose();
+    }
     super.dispose();
   }
 
@@ -574,7 +606,7 @@ class _PinInputRowState extends State<_PinInputRow> {
               counterText: '',
               filled: true,
               fillColor: isFilled
-                  ? filledColor.withOpacity(0.06)
+                  ? filledColor.withValues(alpha: 0.06)
                   : AppColors.inputFill,
               contentPadding: EdgeInsets.zero,
               border: OutlineInputBorder(
@@ -586,7 +618,7 @@ class _PinInputRowState extends State<_PinInputRow> {
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
                   color: isFilled
-                      ? filledColor.withOpacity(0.4)
+                      ? filledColor.withValues(alpha: 0.4)
                       : AppColors.inputBorder,
                   width: isFilled ? 1.5 : 1,
                 ),
@@ -822,7 +854,7 @@ class _BarangayDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       hint: Text(
         'Select your barangay',
         style: GoogleFonts.inter(
