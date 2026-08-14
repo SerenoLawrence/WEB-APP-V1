@@ -52,16 +52,16 @@ Route::prefix('mobile')->name('mobile.')->group(function () {
     // ── Announcements (public — readable without login) ───────────────
     Route::get('announcements', [MobileAnnouncementController::class, 'index']);
 
+    // ── Public — no login required ────────────────────────────────────
+    // NOTE: /community must be registered BEFORE the auth group's /{id}
+    Route::get('reports/community', [MobileReportController::class, 'community']);
+
     // ── Protected — requires citizen Sanctum token ────────────────────
     Route::middleware('auth:citizen')->group(function () {
 
         // Auth
         Route::post('auth/logout', [MobileAuthController::class, 'logout']);
         Route::get('auth/me',      [MobileAuthController::class, 'me']);
-
-        // Reports
-        // NOTE: /community must be registered BEFORE /{id} to avoid conflict
-        Route::get('reports/community', [MobileReportController::class, 'community']);
         Route::get('reports',           [MobileReportController::class, 'index']);
         Route::post('reports',          [MobileReportController::class, 'store']);
         Route::get('reports/{id}',      [MobileReportController::class, 'show']);

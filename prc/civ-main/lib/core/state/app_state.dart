@@ -37,16 +37,22 @@ class AppState extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
 
+    // Always load community reports (public endpoint — no auth needed)
+    await _loadCommunityReports();
+
     // Try to restore session from saved token
     final user = await _auth.restoreSession();
     if (user != null) {
       _currentUser = user;
       _isGuest = false;
-      await _loadAllData();
+      await Future.wait([
+        _loadMyReports(),
+        _loadNotifications(),
+        _loadAnnouncements(),
+      ]);
     } else {
-      // Not logged in — seed with dummy data as fallback
+      // Not logged in — seed personal data with dummy fallback
       _reports = List.from(DummyData.myReports);
-      _communityReports = List.from(DummyData.communityReports);
       _notifications = List.from(DummyData.notifications);
     }
     notifyListeners();
@@ -83,8 +89,8 @@ class AppState extends ChangeNotifier {
     await _auth.logout();
     _currentUser = null;
     _reports = List.from(DummyData.myReports);
-    _communityReports = List.from(DummyData.communityReports);
     _notifications = List.from(DummyData.notifications);
+    // Community reports stay loaded (public data)
     notifyListeners();
   }
 
@@ -130,10 +136,12 @@ class AppState extends ChangeNotifier {
     if (result.error == null) {
       _communityReports = result.reports;
     } else {
+      // Fallback to dummy data if API is unreachable
       if (_communityReports.isEmpty) {
         _communityReports = List.from(DummyData.communityReports);
       }
     }
+    notifyListeners();
   }
 
   /// Submit a report — calls API then reloads list on success.

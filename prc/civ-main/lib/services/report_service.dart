@@ -47,7 +47,7 @@ class ReportService {
   Future<({List<IncidentReport> reports, String? error})>
       getCommunityReports() async {
     try {
-      final res = await _api.get(ApiConstants.communityReports, auth: true);
+      final res = await _api.get(ApiConstants.communityReports, auth: false);
       final list = (res['data'] as List<dynamic>? ?? [])
           .map((e) => _parseReport(e as Map<String, dynamic>))
           .toList();

@@ -31,6 +31,9 @@ class DatabaseSeeder extends Seeder
         // ── Sample Announcements ───────────────────────────────────────────
         $this->call(AnnouncementSeeder::class);
 
+        // ── Sample Citizen Reports (for map & app testing) ─────────────────
+        $this->call(CitizenReportSeeder::class);
+
         $this->command->info('');
         $this->command->info('✓ CivilWatch database seeded successfully.');
         $this->command->info('  Admin login: admin@civilwatch.ph / Admin@2026!');

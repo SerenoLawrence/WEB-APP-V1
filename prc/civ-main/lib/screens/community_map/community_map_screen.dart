@@ -4,8 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/state/app_state.dart';
 import '../../core/utils/dummy_data.dart';
 import '../../core/utils/helpers.dart';
+import '../../models/report.dart';
 import '../../widgets/map/filter_chip.dart';
 
 class CommunityMapScreen extends StatefulWidget {
@@ -24,20 +26,30 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
   // Digos City center
   static const LatLng _center = LatLng(6.7498, 125.3572);
 
-  List<MapPin> get _filteredPins {
-    if (_activeFilter == 'All') return DummyData.communityPins;
-    return DummyData.communityPins
-        .where((p) => p.category == _activeFilter)
+  /// Convert community reports from AppState into MapPin objects
+  List<MapPin> _toPins(List<IncidentReport> reports) {
+    return reports
+        .where((r) => r.latitude != 0 && r.longitude != 0)
+        .map((r) => MapPin(
+              id: 'pin-${r.id}',
+              reportId: r.id,
+              category: r.category,
+              issue: r.issue,
+              description: r.description,
+              barangay: r.barangay,
+              status: r.status,
+              referenceNumber: r.referenceNumber,
+              lat: r.latitude,
+              lng: r.longitude,
+              imageUrl: r.imageUrl,
+            ))
         .toList();
   }
 
-  int get _infraCount => DummyData.communityPins
-      .where((p) => p.category == 'Infrastructure')
-      .length;
-  int get _envCount =>
-      DummyData.communityPins.where((p) => p.category == 'Environment').length;
-  int get _othersCount =>
-      DummyData.communityPins.where((p) => p.category == 'Others').length;
+  List<MapPin> _filteredPins(List<MapPin> pins) {
+    if (_activeFilter == 'All') return pins;
+    return pins.where((p) => p.category == _activeFilter).toList();
+  }
 
   void _onPinTap(MapPin pin) {
     setState(() => _selectedPin = _selectedPin?.id == pin.id ? null : pin);
@@ -45,8 +57,20 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return ListenableBuilder(
+      listenable: AppState(),
+      builder: (context, _) {
+        final allPins = _toPins(AppState().communityReportsPublic);
+        final filtered = _filteredPins(allPins);
+
+        final infraCount =
+            allPins.where((p) => p.category == 'Infrastructure').length;
+        final envCount =
+            allPins.where((p) => p.category == 'Environment').length;
+        final othersCount =
+            allPins.where((p) => p.category == 'Others').length;
+
+        return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
@@ -77,7 +101,7 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
                         maxZoom: 19,
                       ),
                       MarkerLayer(
-                        markers: _filteredPins.map((pin) {
+                        markers: filtered.map((pin) {
                           final isSelected = _selectedPin?.id == pin.id;
                           final color = AppHelpers.getCategoryColor(
                             pin.category,
@@ -157,15 +181,17 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
                     )
                   : _StatsBar(
                       key: const ValueKey('stats'),
-                      total: DummyData.communityPins.length,
-                      infraCount: _infraCount,
-                      envCount: _envCount,
-                      othersCount: _othersCount,
+                      total: allPins.length,
+                      infraCount: infraCount,
+                      envCount: envCount,
+                      othersCount: othersCount,
                     ),
             ),
           ],
         ),
       ),
+    );
+      },
     );
   }
 }
