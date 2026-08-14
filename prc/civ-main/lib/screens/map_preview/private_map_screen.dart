@@ -19,6 +19,20 @@ class PrivateMapScreen extends StatelessWidget {
 
   bool get _isReadOnly => reportData['readOnly'] == true;
 
+  void _openPhoto(BuildContext context, String? url, String title) {
+    if (url == null) return;
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        pageBuilder: (_, __, ___) => _FullscreenPhoto(imageUrl: url, title: title),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final report = _getReport();
@@ -274,6 +288,95 @@ class PrivateMapScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
+
+                        // ── Before / After photos (resolved reports only) ──
+                        if (report.isResolved &&
+                            (report.imageUrl != null ||
+                                report.afterImageUrl != null)) ...[
+                          const Divider(
+                            height: 1,
+                            color: AppColors.divider,
+                            indent: 20,
+                            endIndent: 20,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.compare_rounded,
+                                  size: 15,
+                                  color: AppColors.textPrimary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Before & After',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'Resolved',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.statusResolved,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                            child: Row(
+                              children: [
+                                // Before photo
+                                Expanded(
+                                  child: _PhotoTile(
+                                    label: 'Before',
+                                    labelColor: AppColors.statusPending,
+                                    labelBg: const Color(0xFFFEF3C7),
+                                    imageUrl: report.imageUrl,
+                                    onTap: () => _openPhoto(
+                                        context, report.imageUrl, 'Before Photo'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                // Arrow
+                                const Icon(
+                                  Icons.compare_arrows_rounded,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 10),
+                                // After photo
+                                Expanded(
+                                  child: _PhotoTile(
+                                    label: 'After',
+                                    labelColor: AppColors.statusResolved,
+                                    labelBg: const Color(0xFFDCFCE7),
+                                    imageUrl: report.afterImageUrl,
+                                    onTap: () => _openPhoto(
+                                        context, report.afterImageUrl, 'After Photo'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                       ],
                     ),
                   ),
@@ -386,4 +489,187 @@ class _TailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_) => false;
+}
+
+// ── Photo tile ────────────────────────────────────────────────────────────────
+class _PhotoTile extends StatelessWidget {
+  final String label;
+  final Color labelColor;
+  final Color labelBg;
+  final String? imageUrl;
+  final VoidCallback onTap;
+
+  const _PhotoTile({
+    required this.label,
+    required this.labelColor,
+    required this.labelBg,
+    required this.imageUrl,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: imageUrl != null ? onTap : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label badge
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: labelBg,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: labelColor,
+              ),
+            ),
+          ),
+          // Image box
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: imageUrl != null
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _placeholder(),
+                        ),
+                        Positioned(
+                          right: 6,
+                          bottom: 6,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.open_in_full_rounded,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _placeholder(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: AppColors.background,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.image_not_supported_outlined,
+              color: AppColors.textSecondary,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'No photo',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Fullscreen photo viewer ───────────────────────────────────────────────────
+class _FullscreenPhoto extends StatelessWidget {
+  final String imageUrl;
+  final String title;
+
+  const _FullscreenPhoto({required this.imageUrl, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_rounded,
+                    color: Colors.white54,
+                    size: 64,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Colors.black45,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

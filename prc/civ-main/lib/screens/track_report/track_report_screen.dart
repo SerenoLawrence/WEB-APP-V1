@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/state/app_state.dart';
@@ -213,7 +215,7 @@ class _TrackReportBody extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // ── Progress Timeline + Activity Log ──────────────────────
+            // ── Progress Timeline + Incident Location ─────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -245,56 +247,70 @@ class _TrackReportBody extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Activity log
+                // Incident Location (top-right, fixed height matching timeline)
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.divider),
+                  child: GestureDetector(
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.privateMap,
+                      arguments: {'reportId': report.id},
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Activity Log',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Incident Location',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...report.activityLog.take(2).map((e) {
-                          final isLast = e == report.activityLog.take(2).last;
-                          return ActivityCard(
-                            entry: e,
-                            isCurrent: e == report.activityLog.last,
-                            isLast: isLast,
-                          );
-                        }),
-                        GestureDetector(
-                          onTap: () {},
-                          child: Row(
+                          const SizedBox(height: 10),
+                          // Fixed-height map — tall enough to match timeline
+                          SizedBox(
+                            height: 260,
+                            child: _RealMiniMap(
+                              lat: report.latitude,
+                              lng: report.longitude,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Barangay ${report.barangay}, Digos City',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
                             children: [
+                              const Icon(
+                                Icons.map_rounded,
+                                size: 12,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 4),
                               Text(
-                                'View All Activity',
+                                'View on Map',
                                 style: GoogleFonts.inter(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primary,
                                 ),
                               ),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                size: 16,
-                                color: AppColors.primary,
-                              ),
                             ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -302,7 +318,7 @@ class _TrackReportBody extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // ── Assigned Office + Location ────────────────────────────
+            // ── Assigned Office + Activity Log ────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -404,63 +420,77 @@ class _TrackReportBody extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
 
-                // Location preview
+                // Activity Log (bottom-right, small)
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.privateMap,
-                      arguments: {'reportId': report.id},
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
                     ),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Incident Location',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Activity Log',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
                           ),
-                          const SizedBox(height: 10),
-                          _MiniStaticMap(),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Barangay ${report.barangay}, Digos City',
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(height: 12),
+                        if (report.activityLog.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.history_rounded,
+                                    size: 14, color: AppColors.textHint),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'No activity yet.',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: AppColors.textHint,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
+                          )
+                        else ...[
+                          ...report.activityLog.take(2).map((e) {
+                            final isLast =
+                                e == report.activityLog.take(2).last;
+                            return ActivityCard(
+                              entry: e,
+                              isCurrent: e == report.activityLog.last,
+                              isLast: isLast,
+                            );
+                          }),
+                        ],
+                        GestureDetector(
+                          onTap: () {},
+                          child: Row(
                             children: [
-                              const Icon(
-                                Icons.map_rounded,
-                                size: 12,
-                                color: AppColors.primary,
-                              ),
-                              const SizedBox(width: 4),
                               Text(
-                                'View on Map',
+                                'View All Activity',
                                 style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primary,
                                 ),
                               ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -729,75 +759,64 @@ class _VerticalTimeline extends StatelessWidget {
   }
 }
 
-class _MiniStaticMap extends StatelessWidget {
+class _RealMiniMap extends StatelessWidget {
+  final double lat;
+  final double lng;
+  const _RealMiniMap({required this.lat, required this.lng});
+
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        height: 70,
-        child: CustomPaint(
-          painter: _MiniMapPainter(),
-          child: Center(
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: AppColors.statusPending,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.white, width: 1.5),
-              ),
-              child: const Icon(
-                Icons.location_on_rounded,
-                color: AppColors.white,
-                size: 12,
-              ),
-            ),
-          ),
+    final point = LatLng(lat, lng);
+    final map = FlutterMap(
+      options: MapOptions(
+        initialCenter: point,
+        initialZoom: 15,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.none,
         ),
       ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.civilwatch.app',
+          maxZoom: 19,
+        ),
+        MarkerLayer(
+          markers: [
+            Marker(
+              point: point,
+              width: 32,
+              height: 32,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.statusPending,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.statusPending.withValues(alpha: 0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: AppColors.white,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: map,
     );
   }
-}
-
-class _MiniMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFFEEF2F7),
-    );
-    final road = Paint()
-      ..color = AppColors.white
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(
-      Offset(0, size.height * 0.5),
-      Offset(size.width, size.height * 0.5),
-      road,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.5, 0),
-      Offset(size.width * 0.5, size.height),
-      road,
-    );
-    final river = Paint()
-      ..color = const Color(0xFFB3D4E8)
-      ..strokeWidth = 7
-      ..style = PaintingStyle.stroke;
-    final p = Path()
-      ..moveTo(0, size.height * 0.25)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.4,
-        size.width,
-        size.height * 0.5,
-      );
-    canvas.drawPath(p, river);
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -863,11 +882,14 @@ class _BeforeAfterPhotos extends StatelessWidget {
                           const Icon(Icons.location_on_rounded,
                               size: 11, color: AppColors.textSecondary),
                           const SizedBox(width: 2),
-                          Text(
-                            'Barangay ${report.barangay}, Digos City',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
+                          Flexible(
+                            child: Text(
+                              'Barangay ${report.barangay}, Digos City',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -903,6 +925,7 @@ class _BeforeAfterPhotos extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: hasAfter
                 ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Before photo
                       Expanded(
@@ -919,26 +942,21 @@ class _BeforeAfterPhotos extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       // Swap arrow
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySurface,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.3)),
-                            ),
-                            child: const Icon(
-                              Icons.compare_arrows_rounded,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySurface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: AppColors.primary
+                                  .withValues(alpha: 0.3)),
+                        ),
+                        child: const Icon(
+                          Icons.compare_arrows_rounded,
+                          size: 14,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       // After photo
