@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/state/app_state.dart';
+import '../../core/utils/dummy_data.dart';
 import '../../core/utils/helpers.dart';
 import '../../widgets/common/section_title.dart';
 import '../../widgets/navigation/bottom_nav.dart';

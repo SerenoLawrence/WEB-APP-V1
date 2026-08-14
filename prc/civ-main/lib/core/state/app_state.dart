@@ -5,6 +5,7 @@ import '../../models/user.dart';
 import '../../services/auth_service.dart';
 import '../../services/report_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/announcement_service.dart';
 import '../utils/dummy_data.dart';
 import '../utils/helpers.dart';
 
@@ -22,9 +23,10 @@ class AppState extends ChangeNotifier {
   AppState._internal();
 
   // ── Services ──────────────────────────────────────────────────────────────
-  final _auth   = AuthService.instance;
+  final _auth      = AuthService.instance;
   final _reportSvc = ReportService.instance;
   final _notifSvc  = NotificationService.instance;
+  final _annSvc    = AnnouncementService.instance;
 
   // ── Init — called once from main.dart ─────────────────────────────────────
   bool _initialized = false;
@@ -91,11 +93,11 @@ class AppState extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Load in parallel
     await Future.wait([
       _loadMyReports(),
       _loadCommunityReports(),
       _loadNotifications(),
+      _loadAnnouncements(),
     ]);
 
     _isLoading = false;
@@ -184,6 +186,21 @@ class AppState extends ChangeNotifier {
       return _communityReports.firstWhere(
           (r) => r.referenceNumber.toUpperCase() == q);
     } catch (_) { return null; }
+  }
+
+  // ── Announcements ─────────────────────────────────────────────────────────
+  List<Announcement> _announcements = [];
+  List<Announcement> get announcements => List.unmodifiable(_announcements);
+
+  Future<void> _loadAnnouncements() async {
+    final result = await _annSvc.getAnnouncements();
+    if (result.error == null) {
+      _announcements = result.announcements;
+    } else {
+      if (_announcements.isEmpty) {
+        _announcements = List.from(DummyData.announcements);
+      }
+    }
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────
