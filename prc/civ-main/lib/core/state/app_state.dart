@@ -143,7 +143,11 @@ class AppState extends ChangeNotifier {
       _addSubmissionNotifications(result.report!);
       notifyListeners();
     }
-    return result;
+    return (
+      success: result.error == null && result.report != null,
+      report: result.report,
+      error: result.error,
+    );
   }
 
   /// Fetch a fresh copy of a single report from API.

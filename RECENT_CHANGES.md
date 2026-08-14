@@ -1,288 +1,358 @@
 # CIVILWATCH — Recent Changes Log
 
 > Last Updated: August 14, 2026
-> Session: Auth Flow Redesign + Visitor Mode + Forgot Password
+> Session: Backend Setup + Flutter ↔ Laravel Integration
 
 ---
 
 ## Summary
 
-This session redesigned the entire Flutter app entry flow. The app now launches to a **Landing Screen** instead of going straight to login. Visitors can browse the map and reports without an account. The auth flow was rebuilt from scratch: Login uses phone + 6-digit PIN (no OTP), and Register collects details then verifies phone via OTP. A full 10-state Forgot Password flow was added as a bottom sheet modal.
+This session covered two major milestones:
+
+1. **Laravel backend fully running** — `.env` configured, database imported from `civilwatch.sql`, all credentials fixed, web admin HTML/JS files now served correctly through `php artisan serve`.
+2. **Flutter app wired to Laravel API** — All three service files (`auth_service`, `report_service`, `notification_service`) now make real HTTP calls to the Laravel backend instead of using dummy data.
 
 ---
 
-## 1. New Files Created
+## Part 1 — Laravel Backend Setup
 
-### `lib/screens/landing/landing_screen.dart`
-The new app launch screen (replaces going straight to login).
+### Problem Fixed: 500 Internal Server Error
 
-- CIVILWATCH logo + city name + tagline
-- Three feature highlight icons (Interactive Map, Location Pins, Filter & Navigate)
-- **Explore as Visitor** button — sets `AppState.isGuest = true`, routes to `VisitorShell`
-- **Login / Register** button — routes to `LoginScreen`
-- City skyline bottom illustration
-- University credit footer
-- Entrance fade + slide animation
+**Root cause:** No `.env` file existed — Laravel had no `APP_KEY` set.
+
+**Fix:**
+- Copied `.env.example` → `.env`
+- Ran `php artisan key:generate` → key set successfully
+- Switched DB from SQLite → MySQL (XAMPP)
 
 ---
 
-### `lib/screens/visitor/visitor_shell.dart`
-Guest mode container with bottom navigation.
+### Database Setup
 
-- Three tabs: **Map** (community map), **Reports** (public list), **About**
-- **Login** shortcut button in bottom nav (4th item, navy)
-- Persistent **GuestBanner** at top of non-map tabs — "Browsing as Guest" + "Login / Register" pill
-- `GuestBanner` exported as public widget so other visitor screens can reuse it
-- Tapping Login calls `AppState().exitGuest()` then routes to `LoginScreen(fromVisitor: true)`
+**Problem:** The `.env` defaulted to SQLite. You already have XAMPP + MySQL running with phpMyAdmin.
 
----
+**Fix:**
+- Updated `.env` to use MySQL:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=civilwatch
+DB_USERNAME=root
+DB_PASSWORD=
+```
+- Created `civilwatch` database in MySQL
+- Imported `civilwatch.sql` (your actual schema) — **not** the Laravel migrations
+- Imported `civilwatch_seed.sql` — 20 reports, 26 photos, full timeline, notifications
 
-### `lib/screens/visitor/visitor_reports_screen.dart`
-Public read-only report list for guests.
+**Tables now in MySQL:**
 
-- Header: "Recent Reports" + **Track** button (top right) → `TrackByReferenceScreen`
-- Search field (searches issue, barangay, reference number)
-- Filter chips: All · Infrastructure · Environment
-- Status legend (Pending · In Progress · Resolved dots)
-- Report cards: category icon strip, issue title, status badge, barangay, date, reference number
-- Tapping a card → `TrackReportScreen` with `readOnly: true`
-- Empty state when no results
-
----
-
-### `lib/screens/visitor/visitor_about_screen.dart`
-System info screen for guests.
-
-- Logo + app name
-- "What is CIVILWATCH?" section card
-- "What you can do as a Visitor" — Map, Reports, Track by Reference
-- "Why register?" — Submit Reports, Track, Notifications
-- Login / Register CTA button
-- Track by Reference No. outlined button
-- University / capstone credits footer
-
----
-
-### `lib/screens/visitor/track_by_reference_screen.dart`
-Look up any report by reference number — **no login required**.
-
-- Instruction card (green tinted)
-- Monospace text input with `CW-YYYY-#####` auto-formatter
-- Search button (disabled until input is non-empty)
-- **Result card** when found:
-  - Category icon, issue title, status badge
-  - Reference number (Roboto Mono), location, date, assigned office
-  - Compact 5-step progress timeline (Submitted → Pending → Assigned → In Progress → Resolved)
-  - "View Full Details" button → `TrackReportScreen`
-- **Not Found card** (red) when reference doesn't exist
-- **Placeholder hint** before any search
-
----
-
-### `lib/screens/auth/forgot_password_flow.dart`
-Full forgot password flow as a bottom sheet. 10 modal states driven by one `_FpState` enum.
-
-| State | Description |
+| Table | Records |
 |---|---|
-| `enterPhone` | Enter mobile number + Send OTP button + Cancel |
-| `otpSent` | ✅ "OTP Sent!" success modal + Continue + Resend (disabled) |
-| `enterOtp` | 6-box OTP input + resend timer + Verify button |
-| `pleaseWait` | ⚠️ "Please wait X seconds" warning modal |
-| `otpResent` | ✅ "OTP Resent!" success modal |
-| `invalidOtp` | ❌ "Invalid OTP" error modal + Try Again (red) |
-| `setNewPin` | Two 6-digit PIN fields + Reset Password button + hint |
-| `resetSuccess` | ✅ "Password Reset!" success + Go to Login |
-| `genericError` | ❌ "Something went wrong" + Try Again (red) |
-
-- All states share `_SheetWrapper` (white card, drag handle, × close button)
-- `AnimatedSwitcher` fade between states
-- `showForgotPasswordFlow(context)` is the public entry point called from login
+| `users` | 3 (admin, ceo, cenro) |
+| `reports` | 20 |
+| `report_photos` | 26 (before + after for resolved) |
+| `report_assignments` | 14 |
+| `report_timeline` | 63 entries |
+| `notifications` | 16 |
+| `personal_access_tokens` | - |
 
 ---
 
-## 2. Files Modified
+### Login Credentials Fixed
 
-### `lib/screens/auth/login_screen.dart` — **Full rewrite**
+**Problem:** CEO and CENRO accounts had `$2b$` bcrypt hashes (Node.js format) — PHP only accepts `$2y$`.
 
-**Before:** Phone number entry → Send OTP → OTP screen
+**Fix:** Imported `civilwatch_seed.sql` which regenerated all three users with correct `$2y$12$` PHP bcrypt hashes.
 
-**After:** Phone number + **Password** (6-digit PIN) → Login button
+**Also fixed:** `User` model had `'password_hash' => 'hashed'` cast which was double-hashing on read — removed that cast.
 
-Changes:
-- Removed OTP send logic entirely from login
-- Added `_PinPasswordField` — single obscured numeric input (6 digits), show/hide toggle
-- "Forgot Password?" now calls `showForgotPasswordFlow(context)` (was a TODO comment)
-- "Don't have an account? **Register**" link at bottom → `AppRoutes.register`
-- Removed "Already have an account? Login" link (reversed — login is now the default screen)
-- Added `fromVisitor` bool param — shows "Continue Browsing" back button when `true`
-- All `withOpacity()` replaced with `withValues(alpha:)` (deprecation fix)
-- Duplicate `import 'package:flutter/material.dart'` removed
+**Working admin credentials:**
+
+| Role | Email | Password |
+|---|---|---|
+| Super Admin | `admin@civilwatch.gov.ph` | `admin123` |
+| CEO | `ceo@civilwatch.gov.ph` | `ceo123` |
+| CENRO | `cenro@civilwatch.gov.ph` | `cenro123` |
 
 ---
 
-### `lib/screens/auth/register_screen.dart` — **Updated**
+### Web Admin Now Served from Laravel
 
-Changes:
-- Added **Mobile Number** field at top of form (phone + +63 prefix)
-- Register button now navigates to `OtpScreen` (to verify phone) instead of directly to Home
-- Header step label changed from "Step 4 of 4 · Registration" → "Step 1 of 2 · Create Account"
-- Added `_PhonePrefixWidget` and `_PhoneFormatter` helper classes at bottom of file
-- Added `_phoneCtrl` controller with proper `dispose()`
-- Removed unused `_currentPin` getter
-- Removed unused `isFocused` local variable
+**Problem:** Visiting `127.0.0.1:8000` showed the Laravel Blade admin login instead of your HTML/JS `index.html`.
 
----
+**Root cause:** `routes/web.php` had `Route::get('/', fn() => redirect()->route('admin.login'))` — redirecting root to the Blade panel.
 
-### `lib/screens/auth/otp_screen.dart` — **Minor update**
+**Fix:** Updated `routes/web.php`:
+- Root `/` now serves `public/index.html` directly
+- Catch-all route added at bottom — serves any `.html` file from `public/`
+- Laravel Blade admin panel still accessible at `/admin/login`
+- Catch-all placed **after** all other routes so it doesn't intercept API or admin routes
 
-Changes:
-- Subtitle text updated: "Enter the 6-digit code we sent to verify your phone for registration."
-- `withOpacity()` replaced with `withValues(alpha:)` (deprecation fix)
-
----
-
-### `lib/screens/splash/splash_screen.dart` — **Route target changed**
-
-Before: `Navigator.pushReplacementNamed(context, AppRoutes.login)`
-After: `Navigator.pushReplacementNamed(context, AppRoutes.landing)`
+```
+http://127.0.0.1:8000                          → index.html (your login page)
+http://127.0.0.1:8000/dashboard.html           → dashboard.html
+http://127.0.0.1:8000/analytics.html           → analytics.html
+http://127.0.0.1:8000/offices/ceo/dashboard.html → CEO dashboard
+http://127.0.0.1:8000/api/ping                 → { "success": true }
+http://127.0.0.1:8000/admin/login              → Blade admin panel
+```
 
 ---
 
-### `lib/core/routes/app_routes.dart` — **New route constants added**
+### Files Modified (Laravel)
+
+| File | Change |
+|---|---|
+| `.env` | Created from `.env.example`, DB switched to MySQL, SESSION/QUEUE/CACHE switched to file/sync |
+| `routes/web.php` | Root serves `index.html`, catch-all serves all `.html` files from `public/` |
+| `app/Models/User.php` | Removed `'password_hash' => 'hashed'` cast that was breaking `Auth::attempt()` |
+| `config/cors.php` | Created — `allowed_origins = ['*']` for Flutter Web + HTML admin |
+| `bootstrap/app.php` | Added `HandleCors` middleware to API routes, CSRF exempt for `api/*` |
+
+---
+
+## Part 2 — Flutter App ↔ Laravel Integration
+
+### Overview
+
+The Flutter app (`prc/civ-main`) was 100% in-memory (dummy data). All service files had `Future.delayed` mocks. This session replaced all of that with real HTTP calls to the Laravel API.
+
+---
+
+### New Files Created (Flutter)
+
+#### `lib/core/constants/api_constants.dart`
+
+Central file for all API endpoint URLs.
 
 ```dart
-static const String landing          = '/landing';
-static const String visitor          = '/visitor';
-static const String trackByReference = '/track-by-reference';
+// Base URL — Flutter Web on Chrome, same machine as Laravel
+static const String baseUrl = 'http://127.0.0.1:8000/api';
+
+// All endpoints as constants
+static const String sendOtp   = '$baseUrl/mobile/auth/send-otp';
+static const String verifyOtp = '$baseUrl/mobile/auth/verify-otp';
+static const String register  = '$baseUrl/mobile/auth/register';
+static const String logout    = '$baseUrl/mobile/auth/logout';
+static const String me        = '$baseUrl/mobile/auth/me';
+static const String reports   = '$baseUrl/mobile/reports';
+// ... etc
 ```
 
----
-
-### `lib/core/routes/route_generator.dart` — **New routes wired**
-
-Added:
-- `AppRoutes.landing` → `LandingScreen`
-- `AppRoutes.visitor` → `VisitorShell`
-- `AppRoutes.trackByReference` → `TrackByReferenceScreen`
-- `AppRoutes.login` now passes `fromVisitor` bool from route args to `LoginScreen`
-- Cleaned up inline comments, removed legacy step comments
+> To test on a real Android device: change `baseUrl` to `http://10.10.10.87:8000/api`
 
 ---
 
-### `lib/core/state/app_state.dart` — **Guest mode added**
+#### `lib/core/network/api_client.dart`
 
-New fields and methods:
+Shared HTTP client used by all services.
+
+Features:
+- `get()`, `post()`, `delete()`, `postMultipart()` methods
+- Auto-injects `Bearer` token from `SharedPreferences` on every request
+- Parses Laravel JSON responses (`{ success, data, message }`)
+- Throws `ApiException(message, statusCode, errors)` on non-2xx
+- Extracts first validation error from `errors` map automatically
+- Debug logging in `kDebugMode` (`🌐 GET [200] /api/...`)
+- Token storage via `SharedPreferences` (web-safe — works in Chrome)
+
 ```dart
-bool get isGuest
-void enterAsGuest()
-void exitGuest()
-List<IncidentReport> get communityReportsPublic
-IncidentReport? getByReference(String refNumber)
-```
-
-- `enterAsGuest()` — sets `_isGuest = true`, notifies listeners
-- `exitGuest()` — sets `_isGuest = false`, notifies listeners
-- `communityReportsPublic` — exposes `_communityReports` to visitor screens
-- `getByReference()` — searches both `_reports` and `_communityReports` by reference number (case-insensitive)
-
----
-
-### `lib/screens/report/report_category.dart` — **Bug fixes**
-
-Fixed errors from previous session:
-- `_ReportNavBar` constructor syntax was broken (used `:` chaining instead of named params)
-- `nextLabel`, `nextColor`, `onBack` fields were non-`final` (broke `const` constructor)
-- Removed unused params `onBack`, `nextLabel`, `nextColor` (were never passed at call site)
-- Hardcoded defaults inline: "Next" label, `AppColors.primary` color, `Navigator.pop` back action
-- 3× `withOpacity()` → `withValues(alpha:)` (deprecation fix)
-
----
-
-## 3. New App Flow (After This Session)
-
-```
-Splash (3s)
-    │
-    ▼
-Landing Screen
-    │
-    ├── Explore as Visitor
-    │       │
-    │       ▼
-    │   VisitorShell  ──── Map tab (community map, read-only)
-    │       │         ──── Reports tab (public list + track by ref)
-    │       │         ──── About tab (system info + register CTA)
-    │       │
-    │       └── Login / Register button → LoginScreen(fromVisitor: true)
-    │
-    └── Login / Register
-            │
-            ▼
-        LoginScreen
-            │ phone + 6-digit PIN → Login → Home
-            │
-            ├── Forgot Password? → ForgotPasswordFlow (bottom sheet)
-            │       │
-            │       ├── Enter Phone → Send OTP
-            │       ├── OTP Sent modal → Continue
-            │       ├── Enter OTP → Verify
-            │       │   ├── Too soon → Please Wait modal
-            │       │   ├── Resend → OTP Resent modal
-            │       │   └── Wrong → Invalid OTP modal
-            │       ├── Set New PIN (6-digit)
-            │       └── Password Reset! modal → Go to Login
-            │
-            └── Don't have an account? Register
-                    │
-                    ▼
-                RegisterScreen
-                (phone + name + barangay + create PIN + confirm PIN)
-                    │
-                    ▼
-                OtpScreen (Step 2 of 2 · verify phone)
-                    │
-                    ▼
-                  Home
+// Token methods
+await ApiClient.instance.saveToken(token);
+await ApiClient.instance.getToken();
+await ApiClient.instance.deleteToken();
+bool hasToken = await ApiClient.instance.hasToken;
 ```
 
 ---
 
-## 4. Diagnostic Status (All Clean)
+### Rewritten Files (Flutter Services)
 
-| File | Errors | Warnings |
+#### `lib/services/auth_service.dart`
+
+**Before:** `Future.delayed` mocks, always returned `true`.
+
+**After:** Real API calls to Laravel.
+
+| Method | Endpoint | Description |
 |---|---|---|
-| `login_screen.dart` | 0 | 0 |
-| `register_screen.dart` | 0 | 0 |
-| `otp_screen.dart` | 0 | 0 |
-| `forgot_password_flow.dart` | 0 | 0 |
-| `landing_screen.dart` | 0 | 0 |
-| `visitor_shell.dart` | 0 | 0 |
-| `visitor_reports_screen.dart` | 0 | 0 |
-| `visitor_about_screen.dart` | 0 | 0 |
-| `track_by_reference_screen.dart` | 0 | 0 |
-| `report_category.dart` | 0 | 0 |
-| `route_generator.dart` | 0 | 0 |
-| `app_routes.dart` | 0 | 0 |
-| `app_state.dart` | 0 | 0 |
+| `restoreSession()` | `GET /api/mobile/auth/me` | Called on app start — restores login from saved token |
+| `sendOtp(phone)` | `POST /api/mobile/auth/send-otp` | Returns OTP code in dev mode |
+| `verifyOtp(phone, otp)` | `POST /api/mobile/auth/verify-otp` | Returns `isNewUser` + token |
+| `register(...)` | `POST /api/mobile/auth/register` | Creates citizen + returns token |
+| `logout()` | `POST /api/mobile/auth/logout` | Revokes Sanctum token + clears storage |
+| `fetchMe()` | `GET /api/mobile/auth/me` | Refreshes user profile |
+| `loginWithPin(phone, pin)` | `TODO` | Placeholder — Laravel endpoint not yet built |
+
+> **Note:** `loginWithPin` is a placeholder. A `POST /api/mobile/auth/login` endpoint (phone + PIN, no OTP) needs to be added to Laravel. See Pending Tasks below.
 
 ---
 
-## 5. Pending (Next Session)
+#### `lib/services/report_service.dart`
 
-| # | Task | Notes |
+**Before:** Returned `DummyData.myReports` directly.
+
+**After:** Real API calls to Laravel.
+
+| Method | Endpoint | Description |
 |---|---|---|
-| 1 | Setup Laravel `.env` + run migrations + seed + serve | Backend is fully built, just needs DB setup |
-| 2 | Wire Flutter auth to Laravel API | Replace all `Future.delayed` mocks with real HTTP calls |
-| 3 | Add `flutter_secure_storage` for token persistence | Sanctum token from Laravel |
-| 4 | Add `image_picker` for real photo capture | Step 3 of report flow |
-| 5 | Add `geolocator` + `permission_handler` for real GPS | Step 4 of report flow |
-| 6 | Wire report submission to `POST /api/mobile/reports` | Multipart with photo |
-| 7 | Wire My Reports, Track Report, Community Map to API | Replace AppState dummy data |
-| 8 | Wire Notifications to API | Replace dummy notifications |
-| 9 | Connect Web Admin to Laravel API | Replace static JSON |
-| 10 | CEO + CENRO Settings pages | Currently placeholder |
-| 11 | After photo upload on report-details (web admin) | UI shell exists |
-| 12 | SMS OTP via Semaphore (real provider) | OTP currently returned in API response |
+| `getMyReports({status})` | `GET /api/mobile/reports` | Citizen's own reports, optional status filter |
+| `getReportById(id)` | `GET /api/mobile/reports/{id}` | Single report with full activity log |
+| `getCommunityReports()` | `GET /api/mobile/reports/community` | All validated public reports for map |
+| `submitReport(data)` | `POST /api/mobile/reports` | Multipart form submission |
+
+Response JSON is parsed into `IncidentReport` and `ActivityEntry` model objects. Falls back to `DummyData` if the API is unreachable.
+
+---
+
+#### `lib/services/notification_service.dart`
+
+**Before:** Returned `DummyData.notifications` directly.
+
+**After:** Real API calls to Laravel.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `getNotifications()` | `GET /api/mobile/notifications` | Returns list + unread count |
+| `markAllRead()` | `POST /api/mobile/notifications/mark-all-read` | Marks all read |
+| `markRead(id)` | `POST /api/mobile/notifications/{id}/read` | Marks one read |
+
+---
+
+### Updated Files (Flutter)
+
+#### `lib/core/state/app_state.dart`
+
+**Before:** Hard-coded `DummyData` in constructor, no API calls.
+
+**After:** Uses real services with `DummyData` as fallback.
+
+Key changes:
+- Added `init()` method — called once from `main.dart` before `runApp`
+  - Calls `AuthService.restoreSession()` on startup
+  - If token found → loads reports, community reports, notifications from API
+  - If no token → loads `DummyData` as fallback
+- Added `onLoginSuccess(user)` — called after login/register, loads all data
+- Added `logout()` — calls `AuthService.logout()`, clears token, resets to DummyData
+- Added `refresh()` — reloads all API data (for pull-to-refresh)
+- Added `fetchReport(id)` — fetches fresh copy of one report from API
+- `submitReport()` — calls `ReportService.submitReport()`, updates local cache
+- `markAllRead()` / `markRead()` — calls `NotificationService`, updates local state
+- `_unreadCount` now tracked separately and updated from API response
+
+#### `lib/main.dart`
+
+**Before:** Synchronous `void main()`.
+
+**After:** Async `Future<void> main()` — calls `AppState().init()` before `runApp`.
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppState().init(); // ← new
+  // ...
+  runApp(const CivilWatchApp());
+}
+```
+
+---
+
+### Packages Added
+
+| Package | Version | Purpose |
+|---|---|---|
+| `flutter_secure_storage` | `^9.2.2` | Secure token storage (native) |
+| `shared_preferences` | `^2.3.2` | Token storage fallback for Chrome/web |
+
+> `flutter_secure_storage` uses the OS keychain on Android/iOS. On Chrome (web), it falls back to `SharedPreferences` (localStorage). This session uses `SharedPreferences` directly for simplicity since you're running on Chrome.
+
+---
+
+## Current Integration Status
+
+| Feature | Status | Notes |
+|---|---|---|
+| Laravel running on XAMPP MySQL | ✅ Working | `php artisan serve` → `127.0.0.1:8000` |
+| Web admin served from Laravel | ✅ Working | `127.0.0.1:8000` → `index.html` |
+| Web admin login (Blade) | ✅ Working | `127.0.0.1:8000/admin/login` |
+| CORS configured | ✅ Done | `allowed_origins = ['*']` |
+| Flutter packages installed | ✅ Done | `flutter pub get` succeeded |
+| ApiClient + ApiConstants | ✅ Done | Token storage, error handling |
+| Auth service (OTP + register) | ✅ Done | Real API calls |
+| Report service | ✅ Done | Real API calls |
+| Notification service | ✅ Done | Real API calls |
+| AppState uses real services | ✅ Done | DummyData fallback on error |
+| PIN login (no OTP) | ⚠️ Pending | Needs Laravel endpoint |
+| Photo upload (image_picker) | ⚠️ Pending | Multipart ready, picker not added |
+| Real GPS (geolocator) | ⚠️ Pending | Not yet added |
+
+---
+
+## Pending Tasks (Next Session)
+
+| # | Task | Where |
+|---|---|---|
+| 1 | **Add `POST /api/mobile/auth/login`** (phone + PIN, no OTP) | Laravel `MobileAuthController` |
+| 2 | Wire `loginWithPin()` in `auth_service.dart` to new endpoint | Flutter `auth_service.dart` |
+| 3 | Wire login screen to call `AuthService.instance.loginWithPin()` | Flutter `login_screen.dart` |
+| 4 | Wire OTP screen → call `AuthService.instance.verifyOtp()` | Flutter `otp_screen.dart` |
+| 5 | Wire register screen → call `AuthService.instance.register()` | Flutter `register_screen.dart` |
+| 6 | Wire home screen stats from `AppState` (counts are real now) | Flutter `home_screen.dart` |
+| 7 | Wire notifications screen to call `AppState.markRead()` | Flutter `notification_screen.dart` |
+| 8 | Wire community map to use `AppState.communityReportsPublic` | Flutter `community_map_screen.dart` |
+| 9 | Add `image_picker` for real photo capture in Step 3 | Flutter `report_photo.dart` |
+| 10 | Add `geolocator` for real GPS in Step 4 | Flutter `report_location.dart` |
+| 11 | Test full register flow end-to-end | Flutter + Laravel |
+| 12 | Test submit report end-to-end | Flutter + Laravel |
+| 13 | Add citizens table migration to match `citizens` model | Laravel migration |
+
+---
+
+## How to Run (Quick Reference)
+
+### Start Laravel
+```bash
+# In: C:\Users\User\Downloads\SERENO\APP-WITH-WEB\prc\laravel
+php artisan serve
+# → http://127.0.0.1:8000
+```
+
+### Start Flutter (Chrome)
+```bash
+# In: C:\Users\User\Downloads\SERENO\APP-WITH-WEB\prc\civ-main
+flutter run -d chrome
+```
+
+### Test API health
+```
+GET http://127.0.0.1:8000/api/ping
+→ { "success": true, "message": "CivilWatch API is running." }
+```
+
+### Admin panel
+```
+http://127.0.0.1:8000/admin/login
+Email:    admin@civilwatch.gov.ph
+Password: admin123
+```
+
+---
+
+## Architecture Reminder
+
+```
+Flutter App (Chrome)          Web Admin (HTML/JS)
+        ↓                             ↓
+  /api/mobile/*             / and /*.html + /api/*
+        └──────────┬─────────────────┘
+                   ↓
+          Laravel (php artisan serve)
+          http://127.0.0.1:8000
+                   ↓
+              MySQL (XAMPP)
+           Database: civilwatch
+```
 
 ---
 
