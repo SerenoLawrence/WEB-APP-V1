@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -18,20 +18,6 @@ class PrivateMapScreen extends StatelessWidget {
   }
 
   bool get _isReadOnly => reportData['readOnly'] == true;
-
-  void _openPhoto(BuildContext context, String? url, String title) {
-    if (url == null) return;
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        barrierColor: Colors.black87,
-        barrierDismissible: true,
-        pageBuilder: (_, __, ___) => _FullscreenPhoto(imageUrl: url, title: title),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +58,7 @@ class PrivateMapScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // ── Pending warning banner (own reports only) ────────────────────
+          // â”€â”€ Pending warning banner (own reports only)
           if (!_isReadOnly &&
               (report.status == 'Pending Validation' ||
                   report.status == 'Submitted'))
@@ -133,259 +119,168 @@ class PrivateMapScreen extends StatelessWidget {
               ),
             ),
 
-          // ── Real Leaflet map ──────────────────────────────────────────
+         
           Expanded(
-            child: Stack(
-              children: [
-                FlutterMap(
-                  options: MapOptions(
-                    initialCenter: reportLatLng,
-                    initialZoom: 15.5,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.civilwatch.app',
-                      maxZoom: 19,
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: reportLatLng,
-                          width: 60,
-                          height: 70,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Popup bubble
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: AppColors.cardShadow,
-                                      blurRadius: 6,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  report.issue,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              // Pin circle
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: pinColor,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.white,
-                                    width: 2.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: pinColor.withOpacity(0.5),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  pinIcon,
-                                  color: AppColors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              // Tail
-                              CustomPaint(
-                                size: const Size(10, 7),
-                                painter: _TailPainter(color: pinColor),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: reportLatLng,
+                initialZoom: 15.5,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
                 ),
-
-                // ── Bottom info sheet ─────────────────────────────────
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.cardShadow,
-                          blurRadius: 10,
-                          offset: Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 10),
-                        Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.divider,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        _InfoRow(
-                          icon: Icons.location_on_rounded,
-                          label: 'Barangay ${report.barangay}',
-                          subtitle: 'Digos City',
-                        ),
-                        const Divider(
-                          height: 1,
-                          color: AppColors.divider,
-                          indent: 20,
-                          endIndent: 20,
-                        ),
-                        _InfoRow(
-                          icon: Icons.my_location_rounded,
-                          label: 'Coordinates',
-                          subtitle:
-                              '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
-                        ),
-                        const Divider(
-                          height: 1,
-                          color: AppColors.divider,
-                          indent: 20,
-                          endIndent: 20,
-                        ),
-                        _InfoRow(
-                          icon: Icons.calendar_today_rounded,
-                          label: 'Submitted',
-                          subtitle: AppHelpers.formatDateTime(
-                            report.submittedAt,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // ── Before / After photos (resolved reports only) ──
-                        if (report.isResolved &&
-                            (report.imageUrl != null ||
-                                report.afterImageUrl != null)) ...[
-                          const Divider(
-                            height: 1,
-                            color: AppColors.divider,
-                            indent: 20,
-                            endIndent: 20,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.compare_rounded,
-                                  size: 15,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.civilwatch.app',
+                  maxZoom: 19,
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: reportLatLng,
+                      width: 60,
+                      height: 70,
+                      child: GestureDetector(
+                        onTap: report.isResolved
+                            ? () => showDialog(
+                                  context: context,
+                                  builder: (_) =>
+                                      _BeforeAfterDialog(report: report),
+                                )
+                            : null,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Popup bubble
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: AppColors.cardShadow,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                report.issue,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Before & After',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFDCFCE7),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    'Resolved',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.statusResolved,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(20, 6, 20, 12),
-                            child: Row(
-                              children: [
-                                // Before photo
-                                Expanded(
-                                  child: _PhotoTile(
-                                    label: 'Before',
-                                    labelColor: AppColors.statusPending,
-                                    labelBg: const Color(0xFFFEF3C7),
-                                    imageUrl: report.imageUrl,
-                                    onTap: () => _openPhoto(
-                                        context, report.imageUrl, 'Before Photo'),
+                            const SizedBox(height: 2),
+                            // Pin circle
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: pinColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.white,
+                                  width: 2.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: pinColor.withValues(alpha: 0.5),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                // Arrow
-                                const Icon(
-                                  Icons.compare_arrows_rounded,
-                                  size: 18,
-                                  color: AppColors.primary,
-                                ),
-                                const SizedBox(width: 10),
-                                // After photo
-                                Expanded(
-                                  child: _PhotoTile(
-                                    label: 'After',
-                                    labelColor: AppColors.statusResolved,
-                                    labelBg: const Color(0xFFDCFCE7),
-                                    imageUrl: report.afterImageUrl,
-                                    onTap: () => _openPhoto(
-                                        context, report.afterImageUrl, 'After Photo'),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              child: Icon(
+                                pinIcon,
+                                color: AppColors.white,
+                                size: 20,
+                              ),
                             ),
-                          ),
-                        ],
-
-                      ],
+                            // Tail
+                            CustomPaint(
+                              size: const Size(10, 7),
+                              painter: _TailPainter(color: pinColor),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // ── Back button ───────────────────────────────────────────────
+          // ── Info sheet ────────────────────────────────────────────────
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.cardShadow,
+                  blurRadius: 10,
+                  offset: Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                _InfoRow(
+                  icon: Icons.location_on_rounded,
+                  label: 'Barangay ${report.barangay}',
+                  subtitle: 'Digos City',
+                ),
+                const Divider(
+                  height: 1,
+                  color: AppColors.divider,
+                  indent: 20,
+                  endIndent: 20,
+                ),
+                _InfoRow(
+                  icon: Icons.my_location_rounded,
+                  label: 'Coordinates',
+                  subtitle:
+                      '${report.latitude.toStringAsFixed(4)}, ${report.longitude.toStringAsFixed(4)}',
+                ),
+                const Divider(
+                  height: 1,
+                  color: AppColors.divider,
+                  indent: 20,
+                  endIndent: 20,
+                ),
+                _InfoRow(
+                  icon: Icons.calendar_today_rounded,
+                  label: 'Submitted',
+                  subtitle: AppHelpers.formatDateTime(report.submittedAt),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+
+          //Back button 
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             color: AppColors.white,
@@ -417,7 +312,7 @@ class PrivateMapScreen extends StatelessWidget {
   }
 }
 
-// ── Info row widget ───────────────────────────────────────────────────────────
+// Info row widget 
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -471,7 +366,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// ── Pin tail painter ──────────────────────────────────────────────────────────
+// ── Pin tail painter ─────────────────────────────────────────────────────────
 class _TailPainter extends CustomPainter {
   final Color color;
   const _TailPainter({required this.color});
@@ -491,15 +386,16 @@ class _TailPainter extends CustomPainter {
   bool shouldRepaint(_) => false;
 }
 
-// ── Photo tile ────────────────────────────────────────────────────────────────
-class _PhotoTile extends StatelessWidget {
+
+// ── Photo tile for before/after ───────────────────────────────────────────────
+class _MapPhotoTile extends StatelessWidget {
   final String label;
   final Color labelColor;
   final Color labelBg;
   final String? imageUrl;
   final VoidCallback onTap;
 
-  const _PhotoTile({
+  const _MapPhotoTile({
     required this.label,
     required this.labelColor,
     required this.labelBg,
@@ -514,10 +410,10 @@ class _PhotoTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label badge
           Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            margin: const EdgeInsets.only(bottom: 5),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: labelBg,
               borderRadius: BorderRadius.circular(20),
@@ -531,38 +427,15 @@ class _PhotoTile extends StatelessWidget {
               ),
             ),
           ),
-          // Image box
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: AspectRatio(
-              aspectRatio: 1,
+              aspectRatio: 1.3,
               child: imageUrl != null
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(
-                          imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _placeholder(),
-                        ),
-                        Positioned(
-                          right: 6,
-                          bottom: 6,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Icons.open_in_full_rounded,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
+                  ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholder(),
                     )
                   : _placeholder(),
             ),
@@ -579,19 +452,12 @@ class _PhotoTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.image_not_supported_outlined,
-              color: AppColors.textSecondary,
-              size: 24,
-            ),
+            const Icon(Icons.image_not_supported_outlined,
+                color: AppColors.textHint, size: 22),
             const SizedBox(height: 4),
-            Text(
-              'No photo',
-              style: GoogleFonts.inter(
-                fontSize: 10,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text('No photo',
+                style: GoogleFonts.inter(
+                    fontSize: 10, color: AppColors.textHint)),
           ],
         ),
       ),
@@ -600,11 +466,11 @@ class _PhotoTile extends StatelessWidget {
 }
 
 // ── Fullscreen photo viewer ───────────────────────────────────────────────────
-class _FullscreenPhoto extends StatelessWidget {
+class _FullscreenPhotoViewer extends StatelessWidget {
   final String imageUrl;
   final String title;
-
-  const _FullscreenPhoto({required this.imageUrl, required this.title});
+  const _FullscreenPhotoViewer(
+      {required this.imageUrl, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -633,8 +499,8 @@ class _FullscreenPhoto extends StatelessWidget {
               right: 0,
               child: SafeArea(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
                       GestureDetector(
@@ -646,11 +512,8 @@ class _FullscreenPhoto extends StatelessWidget {
                             color: Colors.black45,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 18),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -666,6 +529,144 @@ class _FullscreenPhoto extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ── Before & After modal dialog (shown when pin is tapped) ───────────────────
+class _BeforeAfterDialog extends StatelessWidget {
+  final dynamic report; // IncidentReport
+
+  const _BeforeAfterDialog({required this.report});
+
+  void _openPhoto(BuildContext context, String? url, String title) {
+    if (url == null) return;
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        pageBuilder: (_, __, ___) =>
+            _FullscreenPhotoViewer(imageUrl: url, title: title),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.compare_rounded,
+                    size: 18, color: AppColors.textPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  'Before & After',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Resolved',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.statusResolved,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        size: 14, color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Issue name + barangay
+            Text(
+              report.issue,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Barangay ${report.barangay}, Digos City',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Before & After photos side by side
+            Row(
+              children: [
+                Expanded(
+                  child: _MapPhotoTile(
+                    label: 'Before',
+                    labelColor: AppColors.statusPending,
+                    labelBg: const Color(0xFFFEF3C7),
+                    imageUrl: report.imageUrl,
+                    onTap: () =>
+                        _openPhoto(context, report.imageUrl, 'Before Photo'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Icon(Icons.compare_arrows_rounded,
+                    size: 20, color: AppColors.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MapPhotoTile(
+                    label: 'After',
+                    labelColor: AppColors.statusResolved,
+                    labelBg: const Color(0xFFDCFCE7),
+                    imageUrl: report.afterImageUrl,
+                    onTap: () => _openPhoto(
+                        context, report.afterImageUrl, 'After Photo'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

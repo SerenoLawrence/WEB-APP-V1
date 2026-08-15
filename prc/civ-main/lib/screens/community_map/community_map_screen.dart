@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -85,7 +85,7 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  // ── OSM tile map ──────────────────────────────────────
+                  // â”€â”€ OSM tile map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
@@ -127,7 +127,7 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
                     ],
                   ),
 
-                  // ── Center / location button ───────────────────────────
+                  // â”€â”€ Center / location button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Positioned(
                     right: 14,
                     bottom: _selectedPin != null ? 320 : 14,
@@ -160,7 +160,7 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
               ),
             ),
 
-            // ── Bottom: either detail card or stats bar ───────────────────
+            // â”€â”€ Bottom: either detail card or stats bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),
               switchInCurve: Curves.easeOutCubic,
@@ -173,11 +173,17 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
                 child: child,
               ),
               child: _selectedPin != null
-                  ? _PinDetailSheet(
-                      key: ValueKey(_selectedPin!.id),
-                      pin: _selectedPin!,
-                      onClose: () => setState(() => _selectedPin = null),
-                      mapController: _mapController,
+                  ? ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight:
+                            MediaQuery.of(context).size.height * 0.65,
+                      ),
+                      child: _PinDetailSheet(
+                        key: ValueKey(_selectedPin!.id),
+                        pin: _selectedPin!,
+                        onClose: () => setState(() => _selectedPin = null),
+                        mapController: _mapController,
+                      ),
                     )
                   : _StatsBar(
                       key: const ValueKey('stats'),
@@ -196,7 +202,7 @@ class _CommunityMapScreenState extends State<CommunityMapScreen> {
   }
 }
 
-// ── Teardrop map pin ──────────────────────────────────────────────────────────
+// â”€â”€ Teardrop map pin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _TeardropPin extends StatelessWidget {
   final Color color;
   final IconData icon;
@@ -254,7 +260,7 @@ class _TeardropPin extends StatelessWidget {
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _MapHeader extends StatelessWidget {
   final bool embedded;
   const _MapHeader({required this.embedded});
@@ -351,7 +357,7 @@ class _MapHeader extends StatelessWidget {
   }
 }
 
-// ── Filter row ────────────────────────────────────────────────────────────────
+// â”€â”€ Filter row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _FilterRow extends StatelessWidget {
   final String activeFilter;
   final void Function(String) onChanged;
@@ -414,7 +420,7 @@ class _FilterRow extends StatelessWidget {
   }
 }
 
-// ── Pin detail bottom sheet ───────────────────────────────────────────────────
+// â”€â”€ Pin detail bottom sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _PinDetailSheet extends StatelessWidget {
   final MapPin pin;
   final VoidCallback onClose;
@@ -442,6 +448,7 @@ class _PinDetailSheet extends StatelessWidget {
       arguments: {'reportId': pin.reportId},
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -480,12 +487,16 @@ class _PinDetailSheet extends StatelessWidget {
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          // Scrollable content â€” prevents overflow when before/after photos
+          // push the sheet taller than the available screen height
+          Flexible(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Top row: image + info + close ─────────────────────
+                // â”€â”€ Top row: image + info + close â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -616,7 +627,7 @@ class _PinDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                // ── Details section ────────────────────────────────────
+                // â”€â”€ Details section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 Row(
                   children: [
                     const Icon(
@@ -653,11 +664,14 @@ class _PinDetailSheet extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      pin.barangay,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                    Flexible(
+                      child: Text(
+                        pin.barangay,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -665,7 +679,7 @@ class _PinDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                // ── Location preview ───────────────────────────────────
+                // â”€â”€ Location preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 Row(
                   children: [
                     const Icon(
@@ -757,7 +771,9 @@ class _PinDetailSheet extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                // ── View Full Details button ───────────────────────────
+                // â”€â”€ View Full Details button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                const SizedBox(height: 14),
+
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -791,13 +807,15 @@ class _PinDetailSheet extends StatelessWidget {
               ],
             ),
           ),
+          ), // SingleChildScrollView
+          ), // Flexible
         ],
       ),
     );
   }
 }
 
-// ── Stats bar ─────────────────────────────────────────────────────────────────
+// â”€â”€ Stats bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _StatsBar extends StatelessWidget {
   final int total;
   final int infraCount;
@@ -899,7 +917,7 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-// ── Zoom button ───────────────────────────────────────────────────────────────
+// â”€â”€ Zoom button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _ZoomBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -925,7 +943,7 @@ class _ZoomBtn extends StatelessWidget {
   }
 }
 
-// ── Pin tail painter ──────────────────────────────────────────────────────────
+// â”€â”€ Pin tail painter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _TailPainter extends CustomPainter {
   final Color color;
   const _TailPainter({required this.color});
@@ -944,3 +962,4 @@ class _TailPainter extends CustomPainter {
   @override
   bool shouldRepaint(_) => false;
 }
+
