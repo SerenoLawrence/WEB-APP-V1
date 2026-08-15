@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/utils/helpers.dart';
@@ -126,13 +127,106 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
   }
 
   void _useCurrentLocation() async {
-    // Simulates GPS — in production replace with geolocator package
-    const simulated = LatLng(_kDefaultLat, _kDefaultLng);
+    // ── Step 1: Check if location services are enabled ────────────────
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Location services are disabled. Please enable GPS.',
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+            backgroundColor: AppColors.navy,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── Step 2: Check / request permission ────────────────────────────
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Location permission denied. Tap the map to pick a location.',
+                style: GoogleFonts.inter(fontSize: 13),
+              ),
+              backgroundColor: const Color(0xFFF59E0B),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Location permission permanently denied. Enable it in app settings.',
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Settings',
+              textColor: AppColors.white,
+              onPressed: () => Geolocator.openAppSettings(),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── Step 3: Get real GPS coordinates ──────────────────────────────
     setState(() {
-      _pickedLatLng = simulated;
-      _showMap = false;
+      _isGeocoding = true; // show spinner while getting position
     });
-    await _reverseGeocode(simulated);
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      final latlng = LatLng(position.latitude, position.longitude);
+
+      setState(() {
+        _pickedLatLng = latlng;
+        _showMap = true; // open map so user can see their position
+      });
+
+      // Move map camera to the real location
+      _mapController.move(latlng, 16.0);
+
+      // Reverse geocode the real coordinates
+      await _reverseGeocode(latlng);
+    } catch (e) {
+      setState(() => _isGeocoding = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not get location. Try again or tap the map.',
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+            backgroundColor: AppColors.navy,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _onMapTap(TapPosition _, LatLng latlng) async {
@@ -327,6 +421,27 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
                       cityCtrl: _cityCtrl,
                       provinceCtrl: _provinceCtrl,
                       catColor: catColor,
+                    ),
+                    const SizedBox(height: 8),
+                    // Hint: address is auto-detected and editable
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                            size: 13, color: AppColors.textHint),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Address is auto-detected and may not be 100% accurate. '
+                            'Please verify and correct the Barangay and Purok fields if needed.',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppColors.textHint,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                   ],
