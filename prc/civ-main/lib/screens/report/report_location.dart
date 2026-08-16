@@ -15,6 +15,36 @@ import '_report_stepper.dart';
 const _kDefaultLat = 6.7498;
 const _kDefaultLng = 125.3572;
 
+// ── Official 26 barangays of Digos City (PhilAtlas / PSA 2020) ───────────────
+const _kDigosBarangays = [
+  'Aplaya',
+  'Balabag',
+  'Binaton',
+  'Cogon',
+  'Colorado',
+  'Dawis',
+  'Dulangan',
+  'Goma',
+  'Igpit',
+  'Kapatagan',
+  'Kiagot',
+  'Lungag',
+  'Mahayahay',
+  'Matti',
+  'Ruparan',
+  'San Agustin',
+  'San Jose',
+  'San Miguel',
+  'San Roque',
+  'Sinawilan',
+  'Soong',
+  'Tiguman',
+  'Tres de Mayo',
+  'Zone 1 (Pob.)',
+  'Zone 2 (Pob.)',
+  'Zone 3 (Pob.)',
+];
+
 class ReportLocationScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
   const ReportLocationScreen({super.key, required this.reportData});
@@ -32,7 +62,7 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
   // ── address fields (auto-filled via reverse geocoding) ────────────────────
   final _addressCtrl = TextEditingController();
   final _purokCtrl = TextEditingController();
-  final _barangayCtrl = TextEditingController();
+  String? _selectedBarangay;
   final _cityCtrl = TextEditingController(text: 'Digos City');
   final _provinceCtrl = TextEditingController(text: 'Davao del Sur');
 
@@ -49,7 +79,6 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
   void dispose() {
     _addressCtrl.dispose();
     _purokCtrl.dispose();
-    _barangayCtrl.dispose();
     _cityCtrl.dispose();
     _provinceCtrl.dispose();
     _landmarkCtrl.dispose();
@@ -91,11 +120,17 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
             addr['quarter'] as String? ??
             '';
 
-        // Barangay
-        final barangay = addr['village'] as String? ??
-            addr['suburb'] as String? ??
-            addr['city_district'] as String? ??
-            '';
+        // Barangay — try multiple OSM fields and pick the first that
+        // matches the official Digos City list
+        final barangayCandidates = [
+          addr['village'] as String? ?? '',
+          addr['suburb'] as String? ?? '',
+          addr['quarter'] as String? ?? '',
+          addr['city_district'] as String? ?? '',
+        ];
+        final barangay = barangayCandidates
+            .map((c) => _matchBarangay(c))
+            .firstWhere((m) => m != null, orElse: () => null);
 
         // City / municipality
         final city = addr['city'] as String? ??
@@ -111,7 +146,8 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
         setState(() {
           _addressCtrl.text = shortAddr;
           _purokCtrl.text = purok;
-          _barangayCtrl.text = barangay;
+          // barangay is already matched to official list via _matchBarangay
+          _selectedBarangay = barangay;
           _cityCtrl.text = city;
           _provinceCtrl.text = province;
           _geocodeFailed = false;
@@ -126,8 +162,23 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
     }
   }
 
+  /// Fuzzy-match a raw geocoded barangay string to the official Digos City list.
+  /// Returns the best match, or null if no reasonable match is found.
+  String? _matchBarangay(String raw) {
+    if (raw.isEmpty) return null;
+    final q = raw.toLowerCase().trim();
+    // Exact match first
+    for (final b in _kDigosBarangays) {
+      if (b.toLowerCase() == q) return b;
+    }
+    // Contains match (e.g. "Dawis Norte" → "Dawis")
+    for (final b in _kDigosBarangays) {
+      if (q.contains(b.toLowerCase()) || b.toLowerCase().contains(q)) return b;
+    }
+    return null; // no match — user picks from dropdown
+  }
+
   void _useCurrentLocation() async {
-    // ── Step 1: Check if location services are enabled ────────────────
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
@@ -244,9 +295,9 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
       'longitude': _pickedLatLng!.longitude,
       'address': _addressCtrl.text.trim(),
       'purok': _purokCtrl.text.trim(),
-      'barangay': _barangayCtrl.text.trim().isEmpty
+      'barangay': (_selectedBarangay ?? '').isEmpty
           ? 'Unknown Barangay'
-          : _barangayCtrl.text.trim(),
+          : _selectedBarangay!,
       'city': _cityCtrl.text.trim(),
       'province': _provinceCtrl.text.trim(),
       'landmark': _landmarkCtrl.text.trim(),
@@ -417,7 +468,9 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
                       geocodeFailed: _geocodeFailed,
                       addressCtrl: _addressCtrl,
                       purokCtrl: _purokCtrl,
-                      barangayCtrl: _barangayCtrl,
+                      selectedBarangay: _selectedBarangay,
+                      onBarangayChanged: (val) =>
+                          setState(() => _selectedBarangay = val),
                       cityCtrl: _cityCtrl,
                       provinceCtrl: _provinceCtrl,
                       catColor: catColor,
@@ -648,7 +701,8 @@ class _AddressCard extends StatelessWidget {
   final bool geocodeFailed;
   final TextEditingController addressCtrl;
   final TextEditingController purokCtrl;
-  final TextEditingController barangayCtrl;
+  final String? selectedBarangay;
+  final ValueChanged<String?> onBarangayChanged;
   final TextEditingController cityCtrl;
   final TextEditingController provinceCtrl;
   final Color catColor;
@@ -658,7 +712,8 @@ class _AddressCard extends StatelessWidget {
     required this.geocodeFailed,
     required this.addressCtrl,
     required this.purokCtrl,
-    required this.barangayCtrl,
+    required this.selectedBarangay,
+    required this.onBarangayChanged,
     required this.cityCtrl,
     required this.provinceCtrl,
     required this.catColor,
@@ -726,7 +781,74 @@ class _AddressCard extends StatelessWidget {
                 _AddressField(
                     label: 'Street / Area', ctrl: addressCtrl),
                 _AddressField(label: 'Purok', ctrl: purokCtrl),
-                _AddressField(label: 'Barangay', ctrl: barangayCtrl),
+
+                // ── Barangay dropdown (official Digos City list) ───────
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 76,
+                        child: Text(
+                          'Barangay',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selectedBarangay != null
+                                  ? AppColors.primary
+                                  : AppColors.inputBorder,
+                              width: selectedBarangay != null ? 1.5 : 1,
+                            ),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedBarangay,
+                              hint: Text(
+                                'Select barangay',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.textHint,
+                                ),
+                              ),
+                              isExpanded: true,
+                              isDense: true,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: AppColors.textPrimary,
+                              ),
+                              icon: const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: AppColors.textSecondary,
+                              ),
+                              onChanged: onBarangayChanged,
+                              items: _kDigosBarangays
+                                  .map((b) => DropdownMenuItem(
+                                        value: b,
+                                        child: Text(b),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 _AddressField(label: 'City', ctrl: cityCtrl),
                 _AddressField(
                     label: 'Province',
