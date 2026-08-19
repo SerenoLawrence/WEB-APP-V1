@@ -144,12 +144,12 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
             'Davao del Sur';
 
         setState(() {
-          _addressCtrl.text = shortAddr;
-          _purokCtrl.text = purok;
+          _addressCtrl.text = _toTitleCase(shortAddr);
+          _purokCtrl.text = _toTitleCase(purok);
           // barangay is already matched to official list via _matchBarangay
           _selectedBarangay = barangay;
-          _cityCtrl.text = city;
-          _provinceCtrl.text = province;
+          _cityCtrl.text = _toTitleCase(city);
+          _provinceCtrl.text = _toTitleCase(province);
           _geocodeFailed = false;
         });
       } else {
@@ -176,6 +176,15 @@ class _ReportLocationScreenState extends State<ReportLocationScreen> {
       if (q.contains(b.toLowerCase()) || b.toLowerCase().contains(q)) return b;
     }
     return null; // no match — user picks from dropdown
+  }
+
+  /// Converts a string to Title Case — first letter of each word capitalized.
+  static String _toTitleCase(String s) {
+    if (s.isEmpty) return s;
+    return s
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1))
+        .join(' ');
   }
 
   void _useCurrentLocation() async {
@@ -893,6 +902,7 @@ class _AddressField extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: ctrl,
+              textCapitalization: TextCapitalization.words,
               style:
                   GoogleFonts.inter(fontSize: 13, color: AppColors.textPrimary),
               decoration: InputDecoration(

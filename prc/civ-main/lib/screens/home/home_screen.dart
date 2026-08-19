@@ -242,7 +242,7 @@ class _GreetingSection extends StatelessWidget {
                 ),
               ),
               Text(
-                '$firstName!',
+                '${firstName.split(' ').map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ')}!',
                 style: GoogleFonts.inter(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
